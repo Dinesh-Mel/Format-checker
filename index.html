@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Romance &amp; Features Checker</title>
+<style>
+:root{--bg:#f2f4f6;--panel:#fff;--ink:#1c2530;--mute:#66727f;--line:#d6dce2;--accent:#1d5b88;--red:#ffb3b3;--yellow:#ffe27a}
+@media (prefers-color-scheme:dark){:root{--bg:#141a20;--panel:#1d252d;--ink:#e6ebf0;--mute:#93a0ad;--line:#33404c;--accent:#6fb1de;--red:#8a2f2f;--yellow:#7a6514}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Arial,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}
+.sub{color:var(--mute);margin:0 0 18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text],textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+input[readonly]{opacity:.75}
+textarea{min-height:90px}
+button,a.btn{font:inherit;padding:8px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible,a.btn:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--yellow);outline-offset:1px}
+.grow{flex:1;min-width:240px}
+.msg{margin-top:10px;color:var(--mute)}.msg.err{color:#c0392b}
+.lbl{font-weight:600;margin:12px 0 4px;display:block}
+.box{border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);white-space:pre-wrap;word-break:break-word;min-height:38px}
+.box.empty{color:var(--mute);font-style:italic}
+mark.r{background:var(--red);color:inherit;border-radius:2px;padding:0 1px}
+mark.y{background:var(--yellow);color:inherit;border-radius:2px;padding:0 1px}
+.key{display:inline-flex;gap:14px;font-size:13px;color:var(--mute)}
+.key i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600}
+.tag{padding:1px 8px;border-radius:10px;font-size:12px;white-space:nowrap}
+.tag.r{background:var(--red)}.tag.y{background:var(--yellow)}
+.scroll{overflow-x:auto}
+details summary{cursor:pointer;font-weight:600}
+small{color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+<h1>Romance &amp; Features Checker</h1>
+<p class="sub">Capture the open Aceonline page, then review duplicates (red) and formatting issues (yellow). Everything runs in your own browser, so nobody else sees your data.</p>
+
+<section class="panel">
+  <h2>1. Page link</h2>
+  <div class="row">
+    <input id="link" class="grow" type="text" placeholder="Paste the Aceonline page link you have open" aria-label="Page link">
+    <button id="saveLink">Save link</button>
+    <button id="clearLink" class="ghost">Clear link</button>
+  </div>
+  <div id="linkMsg" class="msg"></div>
+</section>
+
+<section class="panel">
+  <h2>2. Capture</h2>
+  <p class="msg" style="margin-top:0">On the Aceonline tab, click the <b>Capture page</b> bookmark (set up below). Then come back here and click Capture.</p>
+  <div class="row"><button id="capture">Capture</button><button id="clearData" class="ghost">Clear results</button></div>
+  <div id="pasteWrap" hidden>
+    <label class="lbl" for="paste">Paste captured data</label>
+    <textarea id="paste" placeholder="Paste here if the browser blocked clipboard access"></textarea>
+    <div class="row" style="margin-top:8px"><button id="loadPaste">Load</button></div>
+  </div>
+  <div id="capMsg" class="msg"></div>
+
+  <details style="margin-top:14px">
+    <summary>One-time setup: bookmark and settings</summary>
+    <ol>
+      <li>Drag this button to your bookmarks bar: <a id="bm" class="btn" href="#">Capture page</a> (or right-click, Copy link address, and save it as a bookmark).</li>
+      <li>Open the Aceonline product page, expand the features if you like, and click the bookmark. It copies the Romance text and Feature 1 to 10 to your clipboard.</li>
+    </ol>
+    <label class="lbl" for="selD">Romance field selector</label>
+    <input id="selD" type="text" value="#Romance">
+    <label class="lbl" for="selF">Feature fields selector</label>
+    <input id="selF" type="text" value='input[name^="Features["]'>
+    <label class="lbl" for="allow">Allowed capitalised words (acronyms, brand names), separated by spaces</label>
+    <input id="allow" type="text">
+    <small>Hidden features 5 to 10 are read even before you click "Show More Features".</small>
+  </details>
+</section>
+
+<section class="panel" id="results" hidden>
+  <h2>3. Results</h2>
+  <div class="key"><span><i style="background:var(--red)"></i>Duplicate</span><span><i style="background:var(--yellow)"></i>Formatting issue</span></div>
+  <span class="lbl">Romance (Description)</span>
+  <div id="descBox" class="box"></div>
+  <span class="lbl">Features</span>
+  <div id="featBox"></div>
+</section>
+
+<section class="panel" id="errPanel" hidden>
+  <h2 id="errTitle">Error list</h2>
+  <div class="row" style="margin-bottom:10px"><button id="copyList">Copy list</button><button id="csv" class="ghost">Download CSV</button></div>
+  <div class="scroll"><table><thead><tr><th>Field</th><th>Type</th><th>Issue</th><th>Text</th></tr></thead><tbody id="errBody"></tbody></table></div>
+</section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,v)}catch(e){}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let lastErrs=[];
+
+/* ---------- settings ---------- */
+$('#selD').value=store.get('selD',$('#selD').value);
+$('#selF').value=store.get('selF',$('#selF').value);
+$('#allow').value=store.get('allow','HDMI USB LED RoHS NEMA GFCI CSA LCD BTU BTUs PVC ABS UV TV');
+['selD','selF','allow'].forEach(id=>$('#'+id).addEventListener('input',()=>{store.set(id,$('#'+id).value);buildBookmarklet()}));
+
+function buildBookmarklet(){
+  const D=JSON.stringify($('#selD').value),F=JSON.stringify($('#selF').value);
+  const code=`(async()=>{try{const g=e=>(e.value!==undefined?e.value:e.innerText||'').trim();const d=document.querySelector(${D});const f=[...document.querySelectorAll(${F})].map(g);const p=JSON.stringify({url:location.href.split('#')[0],description:d?g(d):'',features:f});try{await navigator.clipboard.writeText(p);alert('Captured Romance + '+f.filter(Boolean).length+' features. Go to the checker and click Capture.')}catch(e){prompt('Copy this text, then paste it into the checker:',p)}}catch(e){alert('Capture failed: '+e.message)}})()`;
+  $('#bm').href='javascript:'+encodeURIComponent(code);
+}
+buildBookmarklet();
+$('#bm').addEventListener('click',e=>{e.preventDefault();alert('Drag this button to your bookmarks bar instead of clicking it here.')});
+
+/* ---------- link ---------- */
+function showLink(){
+  const l=store.get('link','');
+  $('#link').value=l;$('#link').readOnly=!!l;
+  $('#linkMsg').textContent=l?'Link saved. It stays until you click Clear link.':'No link saved.';
+}
+$('#saveLink').onclick=()=>{const v=$('#link').value.trim();if(v){store.set('link',v);showLink()}};
+$('#clearLink').onclick=()=>{store.del('link');showLink();$('#link').focus()};
+showLink();
+
+/* ---------- capture ---------- */
+const sameUrl=(a,b)=>a.split('#')[0].replace(/\/$/,'')===b.split('#')[0].replace(/\/$/,'');
+$('#capture').onclick=async()=>{
+  $('#capMsg').className='msg';$('#capMsg').textContent='';
+  let raw;
+  try{raw=await navigator.clipboard.readText()}
+  catch(e){$('#pasteWrap').hidden=false;$('#capMsg').textContent='Clipboard access was blocked. Paste the captured data below and click Load.';return}
+  load(raw);
+};
+$('#loadPaste').onclick=()=>load($('#paste').value);
+function load(raw){
+  let d;
+  try{d=JSON.parse(raw)}catch(e){}
+  if(!d||typeof d.description!=='string'||!Array.isArray(d.features)){
+    $('#capMsg').className='msg err';
+    $('#capMsg').textContent='No captured data found. Click the Capture page bookmark on the Aceonline tab first.';
+    return;
+  }
+  const saved=store.get('link','');
+  if(saved&&d.url&&!sameUrl(saved,d.url)&&!confirm('The captured page is not the saved link.\n\nCaptured: '+d.url+'\nSaved: '+saved+'\n\nUse it anyway?'))return;
+  $('#capMsg').textContent='Captured '+d.features.filter(f=>f.trim()).length+' features.';
+  render(d.description,d.features.slice(0,10));
+}
+$('#clearData').onclick=()=>{$('#results').hidden=true;$('#errPanel').hidden=true;$('#capMsg').textContent='';$('#paste').value=''};
+
+/* ---------- checks ---------- */
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function sim(a,b){
+  const x=norm(a),y=norm(b);if(!x||!y)return false;if(x===y)return true;
+  const [s,l]=x.length<y.length?[x,y]:[y,x];
+  if(s.split(' ').length>=3&&(' '+l+' ').includes(' '+s+' '))return true;
+  const A=new Set(x.split(' ')),B=new Set(y.split(' '));let i=0;A.forEach(w=>B.has(w)&&i++);
+  return A.size>=4&&B.size>=4&&i/(A.size+B.size-i)>=0.8;
+}
+function analyse(desc,feats){
+  const errs=[],dM=[],fM=feats.map(()=>[]),seen=new Set();
+  const allow=new Set($('#allow').value.split(/\s+/).filter(Boolean).map(w=>w.toLowerCase()));
+  const add=(arr,txt,s,e,type,field,msg)=>{
+    arr.push({s,e,type});
+    const key=field+'|'+type+'|'+msg;
+    if(type==='r'&&seen.has(key))return;seen.add(key);
+    let t=txt.slice(s,e);if(t.length>90)t=t.slice(0,90)+'…';
+    errs.push({field,type,msg,text:t});
+  };
+  const rx=(re,fn)=>{for(const m of desc.matchAll(re))fn(m)};
+  const Y=(s,e,msg)=>add(dM,desc,s,e,'y','Romance',msg);
+
+  // Romance formatting
+  rx(/[™®©℠]|\((?:tm|r|c)\)/gi,m=>Y(m.index,m.index+m[0].length,'Trademark / copyright symbol'));
+  rx(/[^\r\n]+/g,m=>{const t=m[0].replace(/\s+$/,'');if(t.trim()&&!t.endsWith('.'))Y(m.index+t.length-1,m.index+t.length,'Paragraph does not end with "."')});
+  rx(/\binch(?:es)?\b/gi,m=>Y(m.index,m.index+m[0].length,'UOM: use "in."'));
+  rx(/\b(?:foot|feet)\b/gi,m=>Y(m.index,m.index+m[0].length,'UOM: use "ft."'));
+  rx(/\bdegrees?\b/gi,m=>Y(m.index,m.index+m[0].length,'UOM: use "Deg."'));
+  rx(/\d\s*(["”″])/g,m=>Y(m.index+m[0].length-1,m.index+m[0].length,'UOM: use "in." instead of the quote mark'));
+  rx(/\d\s*(['’′])/g,m=>Y(m.index+m[0].length-1,m.index+m[0].length,'UOM: use "ft." instead of the apostrophe'));
+  rx(/\d\s*°/g,m=>Y(m.index+m[0].length-1,m.index+m[0].length,'UOM: use "Deg." instead of the degree sign'));
+  rx(/(\d\s*)(in|ft|deg)(\.?)(?![A-Za-z])/gi,m=>{
+    const exp={in:'in.',ft:'ft.',deg:'Deg.'}[m[2].toLowerCase()];
+    if(m[2]+m[3]!==exp)Y(m.index+m[1].length,m.index+m[0].length,'UOM: use "'+exp+'"');
+  });
+  rx(/\bmade\s+in\s+(?:the\s+)?\w+/gi,m=>Y(m.index,m.index+m[0].length,'"Made in" value not allowed'));
+  rx(/\b(?:warrant(?:y|ies|ed)|guarantee[ds]?)\b/gi,m=>Y(m.index,m.index+m[0].length,'Warranty detail not allowed'));
+
+  // Features formatting
+  feats.forEach((f,i)=>{
+    if(!f.trim())return;
+    const fld='Feature '+(i+1),Z=(s,e,msg)=>add(fM[i],f,s,e,'y',fld,msg);
+    for(const m of f.matchAll(/\./g)){
+      const dec=/\d/.test(f[m.index-1]||'')&&/\d/.test(f[m.index+1]||'');
+      if(!dec)Z(m.index,m.index+1,'"." not allowed (write UOM without a period)');
+    }
+    for(const m of f.matchAll(/[^A-Za-z0-9\s.\-]/g))Z(m.index,m.index+1,'Symbol "'+m[0]+'" not allowed (only "-")');
+    if(/^[a-z]/.test(f))Z(0,1,'Sentence case: must start with a capital letter');
+    let first=true;
+    for(const m of f.matchAll(/[A-Za-z][A-Za-z']*/g)){
+      const w=m[0],isFirst=first;first=false;
+      if(allow.has(w.toLowerCase()))continue;
+      if(/^[A-Z]{4,}$/.test(w))Z(m.index,m.index+w.length,'Sentence case: all-caps word');
+      else if(!isFirst&&/^[A-Z][a-z]/.test(w))Z(m.index,m.index+w.length,'Sentence case: capital letter mid-sentence');
+    }
+  });
+
+  // Duplicates: feature vs feature
+  feats.forEach((a,i)=>{if(!a.trim())return;
+    for(let j=i+1;j<feats.length;j++){
+      if(feats[j].trim()&&sim(a,feats[j])){
+        add(fM[i],a,0,a.length,'r','Feature '+(i+1),'Duplicate of Feature '+(j+1));
+        add(fM[j],feats[j],0,feats[j].length,'r','Feature '+(j+1),'Duplicate of Feature '+(i+1));
+      }}});
+  // Duplicates: description sentence vs feature
+  rx(/[^.!?\r\n]+[.!?]*/g,m=>{
+    const lead=m[0].length-m[0].trimStart().length,s=m.index+lead,sent=m[0].trim();
+    if(!sent)return;
+    feats.forEach((f,i)=>{if(f.trim()&&sim(sent,f)){
+      add(dM,desc,s,s+sent.length,'r','Romance','Sentence duplicates Feature '+(i+1));
+      add(fM[i],f,0,f.length,'r','Feature '+(i+1),'Duplicate of Romance text');
+    }});
+  });
+  return {errs,dM,fM};
+}
+
+/* ---------- render ---------- */
+function paint(txt,marks){
+  const f=new Array(txt.length).fill(0);
+  marks.forEach(m=>{const v=m.type==='r'?2:1;for(let i=m.s;i<m.e&&i<txt.length;i++)f[i]=Math.max(f[i],v)});
+  let out='',i=0;
+  while(i<txt.length){let j=i;while(j<txt.length&&f[j]===f[i])j++;
+    const seg=esc(txt.slice(i,j));out+=f[i]?`<mark class="${f[i]===2?'r':'y'}">${seg}</mark>`:seg;i=j}
+  return out;
+}
+function render(desc,feats){
+  const {errs,dM,fM}=analyse(desc,feats);lastErrs=errs;
+  $('#descBox').className='box'+(desc.trim()?'':' empty');
+  $('#descBox').innerHTML=desc.trim()?paint(desc,dM):'(Romance text is empty)';
+  $('#featBox').innerHTML=feats.map((f,i)=>`<span class="lbl" style="margin-top:8px">Feature ${i+1}</span><div class="box${f.trim()?'':' empty'}">${f.trim()?paint(f,fM[i]):'(empty)'}</div>`).join('');
+  const r=errs.filter(e=>e.type==='r').length,y=errs.length-r;
+  $('#errTitle').textContent=errs.length?`Error list: ${r} duplicate, ${y} formatting`:'Error list: no issues found';
+  $('#errBody').innerHTML=errs.map(e=>`<tr><td>${esc(e.field)}</td><td><span class="tag ${e.type}">${e.type==='r'?'Duplicate':'Formatting'}</span></td><td>${esc(e.msg)}</td><td>${esc(e.text)}</td></tr>`).join('');
+  $('#results').hidden=false;$('#errPanel').hidden=false;
+  $('#results').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});
+}
+
+/* ---------- export ---------- */
+const lines=()=>lastErrs.map(e=>`${e.field} | ${e.type==='r'?'Duplicate':'Formatting'} | ${e.msg} | ${e.text}`).join('\n');
+$('#copyList').onclick=async()=>{
+  try{await navigator.clipboard.writeText(lines());$('#copyList').textContent='Copied'}
+  catch(e){$('#copyList').textContent='Copy blocked'}
+  setTimeout(()=>$('#copyList').textContent='Copy list',1500);
+};
+$('#csv').onclick=()=>{
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const csv=['Field,Type,Issue,Text',...lastErrs.map(e=>[e.field,e.type==='r'?'Duplicate':'Formatting',e.msg,e.text].map(q).join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='content-errors.csv';a.click();
+};
+</script>
+</body>
+</html>
