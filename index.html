@@ -45,8 +45,14 @@ mark.r{cursor:help}
 mark.hot{background:#ff4d4d;color:#fff;outline:2px solid #a30000;font-weight:600}
 main{max-width:1500px}
 .split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(340px,1fr);gap:16px;align-items:start}
-.split>.panel{margin-bottom:0;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto}
-@media(max-width:900px){.split{grid-template-columns:1fr}.split>.panel{position:static;max-height:none;margin-bottom:16px}}
+[hidden]{display:none!important}
+.split>.panel{margin-bottom:0;position:sticky;top:8px;max-height:calc(100vh - 16px);display:flex;flex-direction:column;overflow:hidden}
+.scr{overflow:auto;min-height:0;flex:1 1 auto}
+.bar{position:static;flex:none}
+.rcol{display:flex;flex-direction:column;gap:16px;position:sticky;top:8px;height:calc(100vh - 16px)}
+.rcol>.panel{display:flex;flex-direction:column;min-height:0;margin:0;overflow:hidden}
+#errPanel{flex:3 1 0}#attrPanel{flex:2 1 0}
+@media(max-width:900px){.split{grid-template-columns:1fr}.split>.panel{position:static;max-height:none;margin-bottom:16px}.rcol{position:static;height:auto}.rcol>.panel{flex:none!important}.scr{overflow:visible}}
 details.panel>summary{font-size:16px}.inner{margin:12px 0 0}
 .box{padding:5px 10px;min-height:0}.lbl{margin:8px 0 2px}
 th{position:sticky;top:0;background:var(--panel)}
@@ -111,15 +117,18 @@ button.ghost.on{background:var(--accent);color:#fff}
   <h2>3. Results</h2>
   <div class="key"><span><i style="background:var(--red)"></i>Duplicate</span><span><i style="background:var(--yellow)"></i>Formatting issue</span></div>
   <div class="row bar"><label><input type="checkbox" id="selAll"> Select all</label><button id="selIssues" class="ghost">Select fields with issues</button><button id="format">Format selected</button><button id="undo" class="ghost">Undo last format</button><label><input type="checkbox" id="onlyIssues"> Only fields with issues</label><label><input type="checkbox" id="showEmpty"> Show empty fields</label><span id="fmtMsg" class="msg" style="margin:0"></span></div>
-  <div id="fields"></div>
+  <div id="fields" class="scr"></div>
 </section>
 
+<div class="rcol">
 <section class="panel" id="errPanel" hidden>
   <h2 id="errTitle">Error list</h2>
   <div class="row" style="margin-bottom:10px"><button id="copyList">Copy list</button><button id="csv" class="ghost">Download CSV</button></div>
   <div class="row" style="margin-bottom:8px"><button class="ghost on" data-ef="all">All</button><button class="ghost" data-ef="r">Duplicates</button><button class="ghost" data-ef="y">Formatting</button><small>Click a row to jump to the field</small></div>
-  <div class="scroll"><table><thead><tr><th>Field</th><th>Issue</th><th>Text</th></tr></thead><tbody id="errBody"></tbody></table></div>
+  <div class="scroll scr"><table><thead><tr><th>Field</th><th>Issue</th><th>Text</th></tr></thead><tbody id="errBody"></tbody></table></div>
 </section>
+<section class="panel" id="attrPanel" hidden><h2 id="attrTitle">Attributes</h2><div id="attrs" class="scr"></div></section>
+</div>
 </div>
 </main>
 <div id="peek" hidden></div>
@@ -181,7 +190,7 @@ function load(raw){
   $('#capMsg').textContent='Captured '+S.feats.filter(f=>f.trim()).length+' features and '+na+' attributes.'+(na?'':' No attributes found: open the Attribute Details tab on the page, then capture again.');
   render();$('#top').open=false;
 }
-$('#clearData').onclick=()=>{$('#results').hidden=true;$('#errPanel').hidden=true;$('#capMsg').textContent='';$('#paste').value='';S={desc:'',feats:[],attrs:[]};$('#top').open=true};
+$('#clearData').onclick=()=>{$('#results').hidden=true;$('#errPanel').hidden=true;$('#attrPanel').hidden=true;$('#capMsg').textContent='';$('#paste').value='';S={desc:'',feats:[],attrs:[]};$('#top').open=true};
 
 /* ---------- UOM + case helpers ---------- */
 const UM={inch:'in',inches:'in',in:'in',foot:'ft',feet:'ft',ft:'ft',degree:'deg',degrees:'deg',deg:'deg',pound:'lb',pounds:'lb',lb:'lb',lbs:'lb',ounce:'oz',ounces:'oz',oz:'oz',gallon:'gal',gallons:'gal',gal:'gal',yard:'yd',yards:'yd',yd:'yd',quart:'qt',quarts:'qt',qt:'qt'};
@@ -309,24 +318,26 @@ function render(){
   };
   const sec=(t,arr)=>{const h=arr.filter(show).map(blk).join('');return h?`<span class="lbl">${t}</span>`+h:''};
   const attrs=L.filter(f=>f.a);
-  let html=sec('Romance (Description)',[L[0]])+sec('Features',L.filter(f=>f.k[0]==='f'))+sec('Attributes',attrs);
-  if(!attrs.length)html+='<span class="lbl">Attributes</span><div class="msg">No attributes captured. Open the Attribute Details tab on the page, then capture again.</div>';
+  const ah=attrs.filter(show).map(blk).join('');
+  let html=sec('Romance (Description)',[L[0]])+sec('Features',L.filter(f=>f.k[0]==='f'));
   if(hid)html+=`<div class="msg">${hid} empty field${hid>1?'s':''} hidden. Tick "Show empty fields" to see them.</div>`;
-  if(!html)html='<div class="msg">No fields with issues.</div>';
+  if(!html)html='<div class="msg">Nothing to show here.</div>';
   $('#fields').innerHTML=html;
+  $('#attrs').innerHTML=ah||`<div class="msg">${attrs.length?'No attributes to show.':'No attributes captured. Open the Attribute Details tab on the page, then capture again.'}</div>`;
+  $('#attrTitle').textContent='Attributes ('+attrs.filter(f=>f.text.trim()).length+')';
   const r=errs.filter(e=>e.type==='r').length,y=errs.length-r;
   $('#errTitle').textContent=errs.length?`Error list: ${r} duplicate, ${y} formatting`:'Error list: no issues found';
   const rows=errs.slice().sort((a,b)=>(a.type==='r'?0:1)-(b.type==='r'?0:1)).filter(e=>errFilter==='all'||e.type===errFilter);
   $('#errBody').innerHTML=rows.map(e=>`<tr data-k="${e.k}"><td>${esc(e.f)}</td><td><span class="tag ${e.type}">${e.type==='r'?'Duplicate':'Format'}</span> ${esc(e.msg)}</td><td>${esc(e.text)}</td></tr>`).join('')||'<tr><td colspan="3">Nothing to show.</td></tr>';
   document.querySelectorAll('[data-ef]').forEach(b=>b.classList.toggle('on',b.dataset.ef===errFilter));
-  $('#results').hidden=false;$('#errPanel').hidden=false;
+  $('#results').hidden=false;$('#errPanel').hidden=false;$('#attrPanel').hidden=false;
   const ne=L.filter(f=>f.text.trim());
   $('#selAll').checked=ne.length>0&&ne.every(f=>sel.has(f.k));
 }
 
 /* ---------- select, format, copy, pair highlight ---------- */
-$('#fields').addEventListener('change',e=>{const k=e.target.dataset.k;if(k){e.target.checked?sel.add(k):sel.delete(k)}});
-$('#fields').addEventListener('click',e=>{
+document.addEventListener('change',e=>{const k=e.target.dataset.k;if(k){e.target.checked?sel.add(k):sel.delete(k)}});
+document.addEventListener('click',e=>{
   const k=e.target.dataset.copy;if(!k)return;
   const f=fieldList().find(x=>x.k===k),b=e.target;
   navigator.clipboard.writeText(f.text).then(()=>b.textContent='Copied').catch(()=>b.textContent='Blocked');
