@@ -43,6 +43,19 @@ button.mini{padding:2px 10px;font-size:13px}
 .bar{margin:12px 0 4px;padding:8px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
 mark.r{cursor:help}
 mark.hot{background:#ff4d4d;color:#fff;outline:2px solid #a30000;font-weight:600}
+main{max-width:1500px}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(340px,1fr);gap:16px;align-items:start}
+.split>.panel{margin-bottom:0;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto}
+@media(max-width:900px){.split{grid-template-columns:1fr}.split>.panel{position:static;max-height:none;margin-bottom:16px}}
+details.panel>summary{font-size:16px}.inner{margin:12px 0 0}
+.box{padding:5px 10px;min-height:0}.lbl{margin:8px 0 2px}
+th{position:sticky;top:0;background:var(--panel)}
+tbody tr[data-k]{cursor:pointer}tbody tr[data-k]:hover{background:var(--bg)}
+button.ghost.on{background:var(--accent);color:#fff}
+.bar label{display:flex;gap:5px;align-items:center;font-size:14px}
+.flash{animation:fl 1.6s}@keyframes fl{0%,60%{outline:3px solid var(--accent)}100%{outline:3px solid transparent}}
+@media(prefers-reduced-motion:reduce){.flash{animation:none;outline:3px solid var(--accent)}}
+#peek{position:fixed;right:16px;bottom:16px;max-width:min(440px,90vw);background:var(--ink);color:var(--bg);padding:10px 12px;border-radius:6px;font-size:13px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 </style>
 </head>
 <body>
@@ -50,7 +63,8 @@ mark.hot{background:#ff4d4d;color:#fff;outline:2px solid #a30000;font-weight:600
 <h1>Romance &amp; Features Checker</h1>
 <p class="sub">Capture the open Aceonline page, then review duplicates (red) and formatting issues (yellow). Everything runs in your own browser, so nobody else sees your data.</p>
 
-<section class="panel">
+<details id="top" class="panel" open><summary><b>Link &amp; capture</b></summary>
+<section class="inner">
   <h2>1. Page link</h2>
   <div class="row">
     <input id="link" class="grow" type="text" placeholder="Paste the Aceonline page link you have open" aria-label="Page link">
@@ -60,7 +74,7 @@ mark.hot{background:#ff4d4d;color:#fff;outline:2px solid #a30000;font-weight:600
   <div id="linkMsg" class="msg"></div>
 </section>
 
-<section class="panel">
+<section class="inner">
   <h2>2. Capture</h2>
   <p class="msg" style="margin-top:0">On the Aceonline tab, click the <b>Capture page</b> bookmark (set up below). Then come back here and click Capture.</p>
   <div class="row"><button id="capture">Capture</button><button id="clearData" class="ghost">Clear results</button></div>
@@ -91,19 +105,24 @@ mark.hot{background:#ff4d4d;color:#fff;outline:2px solid #a30000;font-weight:600
   </details>
 </section>
 
+</details>
+<div class="split" id="split">
 <section class="panel" id="results" hidden>
   <h2>3. Results</h2>
   <div class="key"><span><i style="background:var(--red)"></i>Duplicate</span><span><i style="background:var(--yellow)"></i>Formatting issue</span></div>
-  <div class="row bar"><label><input type="checkbox" id="selAll"> Select all</label><button id="selIssues" class="ghost">Select fields with issues</button><button id="format">Format selected</button><button id="undo" class="ghost">Undo last format</button><span id="fmtMsg" class="msg" style="margin:0"></span></div>
+  <div class="row bar"><label><input type="checkbox" id="selAll"> Select all</label><button id="selIssues" class="ghost">Select fields with issues</button><button id="format">Format selected</button><button id="undo" class="ghost">Undo last format</button><label><input type="checkbox" id="onlyIssues"> Only fields with issues</label><label><input type="checkbox" id="showEmpty"> Show empty fields</label><span id="fmtMsg" class="msg" style="margin:0"></span></div>
   <div id="fields"></div>
 </section>
 
 <section class="panel" id="errPanel" hidden>
   <h2 id="errTitle">Error list</h2>
   <div class="row" style="margin-bottom:10px"><button id="copyList">Copy list</button><button id="csv" class="ghost">Download CSV</button></div>
-  <div class="scroll"><table><thead><tr><th>Field</th><th>Type</th><th>Issue</th><th>Text</th></tr></thead><tbody id="errBody"></tbody></table></div>
+  <div class="row" style="margin-bottom:8px"><button class="ghost on" data-ef="all">All</button><button class="ghost" data-ef="r">Duplicates</button><button class="ghost" data-ef="y">Formatting</button><small>Click a row to jump to the field</small></div>
+  <div class="scroll"><table><thead><tr><th>Field</th><th>Issue</th><th>Text</th></tr></thead><tbody id="errBody"></tbody></table></div>
 </section>
+</div>
 </main>
+<div id="peek" hidden></div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -113,7 +132,7 @@ const store={
   del(k){try{localStorage.removeItem(k)}catch(e){}}
 };
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={desc:'',feats:[],attrs:[]},undo=null,sel=new Set(),pair={},info={},lastErrs=[];
+let S={desc:'',feats:[],attrs:[]},undo=null,sel=new Set(),pair={},info={},phr={},lastErrs=[],errFilter='all';
 
 /* ---------- settings + bookmarklet ---------- */
 ['selD','selF','selA','allow','minRun'].forEach(id=>{
@@ -160,9 +179,9 @@ function load(raw){
   sel=new Set();undo=null;
   const na=S.attrs.length;
   $('#capMsg').textContent='Captured '+S.feats.filter(f=>f.trim()).length+' features and '+na+' attributes.'+(na?'':' No attributes found: open the Attribute Details tab on the page, then capture again.');
-  render();
+  render();$('#top').open=false;
 }
-$('#clearData').onclick=()=>{$('#results').hidden=true;$('#errPanel').hidden=true;$('#capMsg').textContent='';$('#paste').value='';S={desc:'',feats:[],attrs:[]}};
+$('#clearData').onclick=()=>{$('#results').hidden=true;$('#errPanel').hidden=true;$('#capMsg').textContent='';$('#paste').value='';S={desc:'',feats:[],attrs:[]};$('#top').open=true};
 
 /* ---------- UOM + case helpers ---------- */
 const UM={inch:'in',inches:'in',in:'in',foot:'ft',feet:'ft',ft:'ft',degree:'deg',degrees:'deg',deg:'deg',pound:'lb',pounds:'lb',lb:'lb',lbs:'lb',ounce:'oz',ounces:'oz',oz:'oz',gallon:'gal',gallons:'gal',gal:'gal',yard:'yd',yards:'yd',yd:'yd',quart:'qt',quarts:'qt',qt:'qt'};
@@ -211,10 +230,10 @@ function fieldList(){
   return L;
 }
 function analyse(){
-  const L=fieldList(),errs=[];pair={};info={};let id=0;
+  const L=fieldList(),errs=[];pair={};info={};phr={};let id=0;
   const al=allowMap(),minRun=Math.max(2,parseInt($('#minRun').value)||3);
   L.forEach(f=>f.marks=[]);
-  const add=(f,s,e,msg)=>{f.marks.push({s,e,type:'y'});errs.push({f:f.label,type:'y',msg,text:f.text.slice(s,e).slice(0,90)})};
+  const add=(f,s,e,msg)=>{f.marks.push({s,e,type:'y'});errs.push({k:f.k,f:f.label,type:'y',msg,text:f.text.slice(s,e).slice(0,90)})};
   L.forEach(f=>{
     const t=f.text;if(!t.trim())return;
     const isD=f.k==='d',isF=f.k[0]==='f',isA=f.k[0]==='a',A=(s,e,m)=>add(f,s,e,m);
@@ -257,8 +276,8 @@ function analyse(){
     const X=T[i],Y=T[j],x=++id,y=++id;pair[x]=y;pair[y]=x;
     [[X,Y,r.a0,r.a1,x],[Y,X,r.b0,r.b1,y]].forEach(([P,O,a,b,pid])=>{
       const s=P.tk[a].s,e=P.tk[b].e;
-      P.f.marks.push({s,e,type:'r',id:pid});info[pid]=O.f.label;
-      errs.push({f:P.f.label,type:'r',msg:'Duplicate with '+O.f.label,text:P.f.text.slice(s,e).slice(0,90)});
+      P.f.marks.push({s,e,type:'r',id:pid});info[pid]=O.f.label;phr[pid]=P.f.text.slice(s,e);
+      errs.push({k:P.f.k,f:P.f.label,type:'r',msg:'Duplicate with '+O.f.label,text:P.f.text.slice(s,e).slice(0,90)});
     });
   }
   return {L,errs};
@@ -274,7 +293,7 @@ function paint(f){
     const seg=esc(t.slice(i,j));
     if(!sev[i])out+=seg;
     else if(sev[i]===1)out+=`<mark class="y">${seg}</mark>`;
-    else{const d=ids[i].trim();out+=`<mark class="r" tabindex="0" data-ids="${d}" title="${esc(d.split(' ').map(x=>'Also in '+info[pair[x]]).join('; '))}">${seg}</mark>`}
+    else{const d=ids[i].trim();out+=`<mark class="r" tabindex="0" data-ids="${d}" title="${esc(d.split(' ').map(x=>'Also in '+info[x]).join('; '))}">${seg}</mark>`}
     i=j;
   }
   return out;
@@ -282,17 +301,27 @@ function paint(f){
 function render(){
   const {L,errs}=analyse();lastErrs=errs;
   const cnt={};errs.forEach(e=>cnt[e.f]=(cnt[e.f]||0)+1);
+  const oi=$('#onlyIssues').checked,se=$('#showEmpty').checked;let hid=0;
+  const show=f=>{if(!f.text.trim()&&!se&&f.k!=='d'){hid++;return false}return !oi||cnt[f.label]>0};
   const blk=f=>{
     const has=f.text.trim(),c=cnt[f.label]||0;
-    return `<div class="fld"><div class="fh"><label>${has?`<input type="checkbox" data-k="${f.k}"${sel.has(f.k)?' checked':''}> `:''}<b>${esc(f.label)}</b></label>${f.a?`<small>${f.a.preset?'dropdown':'free text'}</small>`:''}${c?`<span class="badge">${c} issue${c>1?'s':''}</span>`:''}${has?`<button class="mini ghost" data-copy="${f.k}">Copy</button>`:''}</div><div class="box${has?'':' empty'}">${has?paint(f):'(empty)'}</div></div>`;
+    return `<div class="fld" data-fk="${f.k}"><div class="fh"><label>${has?`<input type="checkbox" data-k="${f.k}"${sel.has(f.k)?' checked':''}> `:''}<b>${esc(f.label)}</b></label>${f.a?`<small>${f.a.preset?'dropdown':'free text'}</small>`:''}${c?`<span class="badge">${c} issue${c>1?'s':''}</span>`:''}${has?`<button class="mini ghost" data-copy="${f.k}">Copy</button>`:''}</div><div class="box${has?'':' empty'}">${has?paint(f):'(empty)'}</div></div>`;
   };
+  const sec=(t,arr)=>{const h=arr.filter(show).map(blk).join('');return h?`<span class="lbl">${t}</span>`+h:''};
   const attrs=L.filter(f=>f.a);
-  $('#fields').innerHTML='<span class="lbl">Romance (Description)</span>'+blk(L[0])+'<span class="lbl">Features</span>'+L.filter(f=>f.k[0]==='f').map(blk).join('')+'<span class="lbl">Attributes</span>'+(attrs.length?attrs.map(blk).join(''):'<div class="msg">No attributes captured. Open the Attribute Details tab on the page, then capture again.</div>');
+  let html=sec('Romance (Description)',[L[0]])+sec('Features',L.filter(f=>f.k[0]==='f'))+sec('Attributes',attrs);
+  if(!attrs.length)html+='<span class="lbl">Attributes</span><div class="msg">No attributes captured. Open the Attribute Details tab on the page, then capture again.</div>';
+  if(hid)html+=`<div class="msg">${hid} empty field${hid>1?'s':''} hidden. Tick "Show empty fields" to see them.</div>`;
+  if(!html)html='<div class="msg">No fields with issues.</div>';
+  $('#fields').innerHTML=html;
   const r=errs.filter(e=>e.type==='r').length,y=errs.length-r;
   $('#errTitle').textContent=errs.length?`Error list: ${r} duplicate, ${y} formatting`:'Error list: no issues found';
-  $('#errBody').innerHTML=errs.map(e=>`<tr><td>${esc(e.f)}</td><td><span class="tag ${e.type}">${e.type==='r'?'Duplicate':'Formatting'}</span></td><td>${esc(e.msg)}</td><td>${esc(e.text)}</td></tr>`).join('');
+  const rows=errs.slice().sort((a,b)=>(a.type==='r'?0:1)-(b.type==='r'?0:1)).filter(e=>errFilter==='all'||e.type===errFilter);
+  $('#errBody').innerHTML=rows.map(e=>`<tr data-k="${e.k}"><td>${esc(e.f)}</td><td><span class="tag ${e.type}">${e.type==='r'?'Duplicate':'Format'}</span> ${esc(e.msg)}</td><td>${esc(e.text)}</td></tr>`).join('')||'<tr><td colspan="3">Nothing to show.</td></tr>';
+  document.querySelectorAll('[data-ef]').forEach(b=>b.classList.toggle('on',b.dataset.ef===errFilter));
   $('#results').hidden=false;$('#errPanel').hidden=false;
-  $('#selAll').checked=L.filter(f=>f.text.trim()).length>0&&L.filter(f=>f.text.trim()).every(f=>sel.has(f.k));
+  const ne=L.filter(f=>f.text.trim());
+  $('#selAll').checked=ne.length>0&&ne.every(f=>sel.has(f.k));
 }
 
 /* ---------- select, format, copy, pair highlight ---------- */
@@ -317,10 +346,20 @@ $('#format').onclick=()=>{
   $('#fmtMsg').textContent=n?`Formatted ${n} field${n>1?'s':''}. Duplicates, "Made in" and warranty text need manual edits.`:'Nothing to change in the selected fields.';
 };
 $('#undo').onclick=()=>{if(undo){S=JSON.parse(undo);undo=null;render();$('#fmtMsg').textContent='Undone.'}};
+const peek=$('#peek');
 const hot=(e,on)=>{
   const m=e.target.closest&&e.target.closest('mark.r');if(!m)return;
-  m.dataset.ids.split(' ').forEach(id=>document.querySelectorAll(`mark.r[data-ids~="${pair[id]}"]`).forEach(x=>x.classList.toggle('hot',on)));
+  const ids=m.dataset.ids.split(' ');
+  ids.forEach(id=>document.querySelectorAll(`mark.r[data-ids~="${pair[id]}"]`).forEach(x=>x.classList.toggle('hot',on)));
+  if(on){peek.innerHTML=ids.map(id=>`<div><b>${esc(info[id])}:</b> “${esc(phr[pair[id]])}”</div>`).join('');peek.hidden=false}else peek.hidden=true;
 };
+document.querySelectorAll('[data-ef]').forEach(b=>b.onclick=()=>{errFilter=b.dataset.ef;render()});
+['onlyIssues','showEmpty'].forEach(id=>$('#'+id).onchange=render);
+$('#errBody').addEventListener('click',e=>{
+  const tr=e.target.closest('tr[data-k]');if(!tr)return;
+  const el=document.querySelector(`[data-fk="${tr.dataset.k}"]`);if(!el)return;
+  el.scrollIntoView({block:'center'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
+});
 ['mouseover','focusin'].forEach(t=>document.addEventListener(t,e=>hot(e,true)));
 ['mouseout','focusout'].forEach(t=>document.addEventListener(t,e=>hot(e,false)));
 
