@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Romance &amp; Features Checker</title>
 <style>
-:root{--bg:#f2f4f6;--panel:#fff;--ink:#1c2530;--mute:#66727f;--line:#d6dce2;--accent:#1d5b88;--red:#ffb3b3;--yellow:#ffe27a}
-@media (prefers-color-scheme:dark){:root{--bg:#141a20;--panel:#1d252d;--ink:#e6ebf0;--mute:#93a0ad;--line:#33404c;--accent:#6fb1de;--red:#8a2f2f;--yellow:#7a6514}}
+:root{--bg:#f2f4f6;--panel:#fff;--ink:#1c2530;--mute:#66727f;--line:#d6dce2;--accent:#1d5b88;--red:#ffb3b3;--yellow:#ffe27a;--orange:#ff9f40}
+@media (prefers-color-scheme:dark){:root{--bg:#141a20;--panel:#1d252d;--ink:#e6ebf0;--mute:#93a0ad;--line:#33404c;--accent:#6fb1de;--red:#8a2f2f;--yellow:#7a6514;--orange:#a8591a}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Arial,sans-serif}
 main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
@@ -27,6 +27,7 @@ button:focus-visible,a.btn:focus-visible,input:focus-visible,textarea:focus-visi
 .box.empty{color:var(--mute);font-style:italic}
 mark.r{background:var(--red);color:inherit;border-radius:2px;padding:0 1px}
 mark.y{background:var(--yellow);color:inherit;border-radius:2px;padding:0 1px}
+mark.o{background:var(--orange)}
 .key{display:inline-flex;gap:14px;font-size:13px;color:var(--mute)}
 .key i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 table{border-collapse:collapse;width:100%;font-size:14px}
@@ -115,7 +116,7 @@ button.ghost.on{background:var(--accent);color:#fff}
 <div class="split" id="split">
 <section class="panel" id="results" hidden>
   <h2>3. Results</h2>
-  <div class="key"><span><i style="background:var(--red)"></i>Duplicate</span><span><i style="background:var(--yellow)"></i>Formatting issue</span></div>
+  <div class="key"><span><i style="background:var(--red)"></i>Duplicate</span><span><i style="background:var(--yellow)"></i>Formatting issue</span><span><i style="background:var(--orange)"></i>Duplicate and formatting issue</span></div>
   <div class="row bar"><label><input type="checkbox" id="selAll"> Select all</label><button id="selIssues" class="ghost">Select fields with issues</button><button id="format">Format selected</button><button id="undo" class="ghost">Undo last format</button><label><input type="checkbox" id="onlyIssues"> Only fields with issues</label><label><input type="checkbox" id="showEmpty"> Show empty fields</label><span id="fmtMsg" class="msg" style="margin:0"></span></div>
   <div id="fields" class="scr"></div>
 </section>
@@ -295,14 +296,14 @@ function analyse(){
 /* ---------- render ---------- */
 function paint(f){
   const t=f.text,n=t.length,sev=new Array(n).fill(0),ids=new Array(n).fill('');
-  f.marks.forEach(m=>{for(let i=m.s;i<m.e&&i<n;i++){if(m.type==='r'){sev[i]=2;ids[i]+=' '+m.id}else if(!sev[i])sev[i]=1}});
+  f.marks.forEach(m=>{for(let i=m.s;i<m.e&&i<n;i++){if(m.type==='r'){sev[i]|=2;ids[i]+=' '+m.id}else sev[i]|=1}});
   let out='',i=0;
   while(i<n){
     let j=i;while(j<n&&sev[j]===sev[i]&&ids[j]===ids[i])j++;
     const seg=esc(t.slice(i,j));
     if(!sev[i])out+=seg;
     else if(sev[i]===1)out+=`<mark class="y">${seg}</mark>`;
-    else{const d=ids[i].trim();out+=`<mark class="r" tabindex="0" data-ids="${d}" title="${esc(d.split(' ').map(x=>'Also in '+info[x]).join('; '))}">${seg}</mark>`}
+    else{const d=ids[i].trim();out+=`<mark class="r${sev[i]===3?' o':''}" tabindex="0" data-ids="${d}" title="${esc(d.split(' ').map(x=>'Also in '+info[x]).join('; ')+(sev[i]===3?' (also a formatting issue)':''))}">${seg}</mark>`}
     i=j;
   }
   return out;
